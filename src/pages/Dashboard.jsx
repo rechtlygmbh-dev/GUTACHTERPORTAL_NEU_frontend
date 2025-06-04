@@ -21,11 +21,13 @@ import { useNavigate } from 'react-router-dom';
 import { useCase } from '../context/CaseContext';
 import { useAuth } from '../context/AuthContext';
 import LinearProgress from '@mui/material/LinearProgress';
+import CreateCaseForm from '../components/case/CreateCaseForm';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { cases, loading, refreshCases } = useCase();
   const { user } = useAuth();
+  const [openCreateCase, setOpenCreateCase] = React.useState(false);
 
   // Optimierte Aktualisierungsfunktion
   const loadData = useCallback(async () => {
@@ -93,11 +95,16 @@ export default function Dashboard() {
 
   return (
     <Box sx={{ minHeight: '100vh', background: colors.background.paper, p: { xs: 0.5, sm: 1, md: 4 } }}>
+      {/* CreateCaseForm Dialog */}
+      <CreateCaseForm 
+        open={openCreateCase} 
+        handleClose={() => setOpenCreateCase(false)} 
+        onCaseCreated={loadData}
+      />
       {/* Willkommensbenachrichtigung */}
       <Alert severity="success" sx={{ mb: 3, fontSize: 18, fontWeight: 500, background: colors.background.gradientGreen, color: colors.text.onPrimary }}>
         Willkommen zurück, {user?.vorname} {user?.nachname}!
       </Alert>
-
       {/* Kachel: Jetzt Fall anlegen */}
       <Paper elevation={3} sx={{
         width: '100%',
@@ -133,7 +140,7 @@ export default function Dashboard() {
               color: colors.secondary.main
             }
           }}
-          onClick={() => navigate('/faelle/neu')}
+          onClick={() => setOpenCreateCase(true)}
         >
           Jetzt Fall anlegen
         </Button>
