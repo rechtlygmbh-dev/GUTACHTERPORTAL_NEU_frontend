@@ -285,6 +285,7 @@ export const CaseProvider = ({ children }) => {
       { label: 'Fahrzeugschein hochgeladen', done: hasDokument(fall.dokumente, 'fahrzeugschein') },
       { label: 'Rechnungen hochgeladen', done: hasDokument(fall.dokumente, 'rechnungen') },
       { label: 'Unfallbericht hochgeladen', done: hasDokument(fall.dokumente, 'unfallbericht') },
+      { label: 'Vollmacht unterschrieben', done: hasDokument(fall.dokumente, 'vollmacht') }
     ];
 
     console.log('🔍 Aufgaben für Fall:', fall.fallname, tasks);

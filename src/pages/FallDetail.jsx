@@ -33,10 +33,8 @@ import OpenTasksTab from '../components/case/OpenTasksTab';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getCaseById, patchDatenschutz } from '../services/caseService';
 import FallSendenDialog from '../components/case/FallSendenDialog';
-import DocusealDatenschutzForm from '../components/case/DocusealDatenschutzForm';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
-import DatenschutzUnterschriftFullscreen from '../components/case/DatenschutzUnterschriftFullscreen';
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -254,7 +252,7 @@ export default function FallDetail() {
   // Aufgabenliste mit Status
   const tasksWithStatus = [
     { label: 'Fallinformationen ausgefüllt', done: allCaseInfoFilled },
-    { label: 'Vollmacht unterschrieben', done: fallData?.datenschutzUnterschrieben },
+    { label: 'Vollmacht unterschrieben', done: hasDokument('vollmacht') },
     { label: 'KFZ Gutachten hochgeladen', done: hasDokument('kfz_gutachten') },
     { label: 'Fahrzeugschein hochgeladen', done: hasDokument('fahrzeugschein') },
     { label: 'Rechnungen hochgeladen', done: hasDokument('rechnungen') },
@@ -657,25 +655,25 @@ export default function FallDetail() {
                     <Typography variant="body2" sx={{ mb: 2 }}>
                       Bitte lesen und unterzeichnen Sie die Vollmacht online, um mit der Fallbearbeitung fortzufahren.
                     </Typography>
-                    <DatenschutzUnterschriftFullscreen
-                      src="https://docuseal.com/d/QaWGMotNAqLqt9"
-                      email={fallData?.mandant?.email || 'signer@example.com'}
-                      onComplete={handleDocusealComplete}
-                    />
-                    {/* Download-Link anzeigen, wenn PDF vorhanden */}
-                    {fallData?.datenschutzPdfPfad && (
-                      <Box sx={{ mt: 2 }}>
-                        <Button
-                          variant="outlined"
-                          color="primary"
-                          href={`/api/documents/download/datenschutz/${fallData._id}`}
-                          target="_blank"
-                          startIcon={<CloudDownloadIcon />}
-                        >
-                          Signierte Vollmacht herunterladen
-                        </Button>
-                      </Box>
-                    )}
+                    <Box sx={{ mt: 2 }}>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        href="http://minio-console-x9fw.onrender.com/api/v1/download-shared-object/aHR0cDovLzEyNy4wLjAuMTo5MDAwL2d1dGFjaHRlci9Wb2xsbWFjaHQvVm9sbG1hY2h0JTIwUWFyYS5MZWdhbC5wZGY_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1KTk9UQjRLUkNIRU1DTkI2OVI2USUyRjIwMjUwNzA0JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI1MDcwNFQxMDIwMDhaJlgtQW16LUV4cGlyZXM9NDMxOTkmWC1BbXotU2VjdXJpdHktVG9rZW49ZXlKaGJHY2lPaUpJVXpVeE1pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SmhZMk5sYzNOTFpYa2lPaUpLVGs5VVFqUkxVa05JUlUxRFRrSTJPVkkyVVNJc0ltVjRjQ0k2TVRjMU1UWTJOekUwTml3aWNHRnlaVzUwSWpvaVlrWXdjbVJyVUVVeVpHWk5aeXQ1VXpKbWIzUjBiRXBTTjNVelZGVm1NWGsyYUROQlNtcHNOa05ZV1QwaWZRLmNDcVBYbG9zNXVhX0w1OXRCMDVfcmNiTW9KRlNWVF9hbWtMNTlwajdPZW1rWU9tTF9xMWNtZGd1b0VaSXV1anB2MHlUMl9GSGdaZFF0bkhObzFlS3BRJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZ2ZXJzaW9uSWQ9bnVsbCZYLUFtei1TaWduYXR1cmU9NmE3ZWE1M2NhNWY4ZWE0MTBlNjc1ZGNlNWU4MmE5YmJlZGRhMTI4NTRiOTRhNTFmMzEzMmY0MWZlMmUzMGVmMw"
+                        startIcon={<CloudDownloadIcon />}
+                        sx={{
+                          bgcolor: colors.primary.main,
+                          color: colors.text.onPrimary,
+                          fontWeight: 600,
+                          '&:hover': {
+                            bgcolor: colors.primary.dark,
+                            color: '#fff',
+                          },
+                        }}
+                      >
+                        Vollmacht herunterladen
+                      </Button>
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>

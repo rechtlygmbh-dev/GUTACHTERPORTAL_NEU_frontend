@@ -27,6 +27,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import { useCase } from '../../context/CaseContext';
+import { documentService } from '../../services/api';
 
 // Status-Komponente für Upload-Buttons
 const UploadStatus = ({ status }) => {
@@ -99,7 +100,8 @@ const dokumentTypen = {
   sonstige: 'Sonstige Dokumente',
   atteste: 'Ärztliche Atteste / Diagnosen',
   reparatur: 'Reparaturrechnung / Kostenvoranschlag',
-  sonstiges: 'Sonstiges'
+  sonstiges: 'Sonstiges',
+  vollmacht: 'Vollmacht'
 };
 
 export default function DocumentsTab({ dokumente = [], fallId, onRefresh }) {
@@ -116,6 +118,10 @@ export default function DocumentsTab({ dokumente = [], fallId, onRefresh }) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState(null);
   const [currentDocumentId, setCurrentDocumentId] = useState(null); // Für den Download
+
+  // State für Upload Vollmacht
+  const [vollmachtUploading, setVollmachtUploading] = useState(false);
+  const [vollmachtError, setVollmachtError] = useState('');
 
   // Mapping: Falls die Dokumente aus der DB eine andere Struktur haben, hier anpassen
   const rows = (dokumente || []).map((doc, idx) => ({
@@ -160,7 +166,6 @@ export default function DocumentsTab({ dokumente = [], fallId, onRefresh }) {
 
     if (window.confirm('Möchten Sie dieses Dokument wirklich löschen?')) {
       try {
-        const { documentService } = await import('../../services/api');
         console.log('🗑️ Lösche Dokument:', documentId);
         
         // Zeige Ladeanimation
@@ -205,7 +210,6 @@ export default function DocumentsTab({ dokumente = [], fallId, onRefresh }) {
         severity: 'info'
       });
       
-      const { documentService } = await import('../../services/api');
       const response = await documentService.getDocumentById(documentId);
       
       if (response.erfolg) {
@@ -262,7 +266,6 @@ export default function DocumentsTab({ dokumente = [], fallId, onRefresh }) {
   const handleView = async (documentId) => {
     try {
       setPreviewLoading(true);
-      const { documentService } = await import('../../services/api');
       const response = await documentService.getDocumentById(documentId);
       
       if (response.erfolg) {
@@ -507,8 +510,6 @@ export default function DocumentsTab({ dokumente = [], fallId, onRefresh }) {
         formData.append('groesse', file.size);
         
         try {
-          const { documentService } = await import('../../services/api');
-          console.log('🔄 Starte Upload...');
           const res = await documentService.uploadDocument(formData);
           console.log('📥 Upload-Response:', res);
           
@@ -622,6 +623,40 @@ export default function DocumentsTab({ dokumente = [], fallId, onRefresh }) {
     );
   };
 
+  // Handler für Vollmacht-Upload
+  const handleVollmachtUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setVollmachtUploading(true);
+    setVollmachtError('');
+    try {
+      const formData = new FormData();
+      formData.append('dokument', file);
+      formData.append('name', file.name);
+      formData.append('kategorie', 'vollmacht');
+      formData.append('fallId', fallId);
+      const res = await documentService.uploadDocument(formData);
+      if (res.erfolg) {
+        setSnackbar({ open: true, message: 'Vollmacht erfolgreich hochgeladen', severity: 'success' });
+        if (refreshCases) await refreshCases(); // expliziter Reload aller Fälle
+        if (onRefresh) await onRefresh();
+        // Debug: Zeige die aktuellen Dokumente im Fall nach Upload
+        const updatedCase = cases.find(f => f._id === fallId);
+        if (updatedCase) {
+          console.log('📄 Dokumente nach Upload:', updatedCase.dokumente);
+        } else {
+          console.log('⚠️ Fall nach Upload nicht gefunden.');
+        }
+      } else {
+        setVollmachtError(res.nachricht || 'Fehler beim Hochladen der Vollmacht');
+      }
+    } catch (err) {
+      setVollmachtError(err.message || 'Fehler beim Hochladen der Vollmacht');
+    } finally {
+      setVollmachtUploading(false);
+    }
+  };
+
   return (
     <Box>
       {/* Upload-Gruppen und Einzeluploads */}
@@ -655,6 +690,24 @@ export default function DocumentsTab({ dokumente = [], fallId, onRefresh }) {
             </Grid>
           ))}
         </Grid>
+      </Paper>
+      <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, boxShadow: colors.shadows.sm }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, color: colors.secondary.main, mb: 2 }}>
+          Vollmacht hochladen
+        </Typography>
+        <Button
+          variant="contained"
+          component="label"
+          startIcon={<CloudUploadIcon />}
+          disabled={vollmachtUploading}
+          sx={{ fontWeight: 600 }}
+        >
+          {vollmachtUploading ? 'Wird hochgeladen...' : 'Vollmacht auswählen'}
+          <input type="file" accept="application/pdf" hidden onChange={handleVollmachtUpload} />
+        </Button>
+        {vollmachtError && (
+          <Typography variant="body2" color="error" sx={{ mt: 1 }}>{vollmachtError}</Typography>
+        )}
       </Paper>
       <Paper elevation={0} sx={{ p: 2, borderRadius: 2, boxShadow: colors.shadows.sm }}>
         <Typography variant="h6" sx={{ fontWeight: 600, color: colors.secondary.main, mb: 2 }}>
