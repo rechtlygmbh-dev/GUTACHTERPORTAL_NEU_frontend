@@ -90,6 +90,29 @@ export default function StatistikDashboard() {
     setFilteredCases(filtered);
   };
 
+  // Vermittler-Statistik berechnen
+  const vermittlerMap = useMemo(() => {
+    const map = {};
+    cases.forEach(fall => {
+      // Unterstützt Array und Einzelobjekt (Rückwärtskompatibilität)
+      const vermittlerArr = Array.isArray(fall.vermitteltVon)
+        ? fall.vermitteltVon
+        : (fall.vermitteltVon ? [fall.vermitteltVon] : []);
+      vermittlerArr.forEach(v => {
+        if (v && (v.vorname || v.nachname)) {
+          const key = `${v.vorname || ''} ${v.nachname || ''}`.trim();
+          if (key) {
+            map[key] = (map[key] || 0) + 1;
+          }
+        }
+      });
+    });
+    return map;
+  }, [cases]);
+
+  const vermittlerArray = Object.entries(vermittlerMap).map(([name, value]) => ({ name, value }));
+  const vermittlerGesamt = vermittlerArray.reduce((acc, v) => acc + v.value, 0);
+
   // Kennzahlen mit useMemo für bessere Performance
   const kennzahlen = useMemo(() => {
     // Berechne die Gesamtzahl der Dokumente
@@ -103,21 +126,16 @@ export default function StatistikDashboard() {
     return [
       { label: 'Fälle in Bearbeitung', value: filteredCases.filter(fall => fall.status === 'In Bearbeitung').length },
       { label: 'Übermittelte Fälle', value: filteredCases.filter(fall => fall.status === 'Übermittelt').length },
-      { 
-        label: 'Dokumente hochgeladen', 
-        value: dokumenteGesamt
-      },
+      { label: 'Dokumente hochgeladen', value: dokumenteGesamt },
       { label: 'Vollständig ausgefüllte Fälle', value: filteredCases.filter(fall => fall.datenschutzAngenommen).length },
-      { 
-        label: 'Neue Fälle diese Woche', 
-        value: filteredCases.filter(fall => {
-          const fallDatum = new Date(fall.erstelltAm);
-          const eineWocheZurueck = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-          return fallDatum > eineWocheZurueck;
-        }).length 
-      },
+      { label: 'Neue Fälle diese Woche', value: filteredCases.filter(fall => {
+        const fallDatum = new Date(fall.erstelltAm);
+        const eineWocheZurueck = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        return fallDatum > eineWocheZurueck;
+      }).length },
+      { label: 'Anzahl der Vermittlungen', value: vermittlerGesamt },
     ];
-  }, [filteredCases]);
+  }, [filteredCases, vermittlerGesamt]);
 
   // Fälle pro Monat berechnen
   const faelleProMonat = useMemo(() => {
@@ -302,6 +320,22 @@ export default function StatistikDashboard() {
                 <Legend />
                 <Tooltip />
               </PieChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Grid>
+        {/* Vermittler-Balkendiagramm */}
+        <Grid item xs={12} md={12}>
+          <Paper elevation={2} sx={{ p: 2, borderRadius: 2, height: 340 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: colors.secondary.main }}>
+              Vermittler nach Anzahl
+            </Typography>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={vermittlerArray} layout="vertical">
+                <XAxis type="number" stroke={colors.secondary.light} allowDecimals={false} />
+                <YAxis dataKey="name" type="category" width={180} stroke={colors.secondary.light} />
+                <Tooltip />
+                <Bar dataKey="value" fill={colors.primary.main} radius={[0, 6, 6, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>

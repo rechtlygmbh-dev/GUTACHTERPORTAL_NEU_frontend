@@ -326,6 +326,11 @@ export const CaseProvider = ({ children }) => {
     getOffeneAufgaben
   };
 
+  // Globale Funktion für externen Refresh (z.B. nach Bearbeitung eines Falls)
+  if (typeof window !== 'undefined') {
+    window.refreshCasesGlobal = loadCases;
+  }
+
   return <CaseContext.Provider value={value}>{children}</CaseContext.Provider>;
 };
 

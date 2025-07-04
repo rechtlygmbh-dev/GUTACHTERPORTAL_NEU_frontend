@@ -33,6 +33,10 @@ import OpenTasksTab from '../components/case/OpenTasksTab';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getCaseById, patchDatenschutz } from '../services/caseService';
 import FallSendenDialog from '../components/case/FallSendenDialog';
+import DocusealDatenschutzForm from '../components/case/DocusealDatenschutzForm';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
+import DatenschutzUnterschriftFullscreen from '../components/case/DatenschutzUnterschriftFullscreen';
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -66,6 +70,7 @@ export default function FallDetail() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [datenschutzAngenommen, setDatenschutzAngenommen] = useState(false);
   const [fallSendenOpen, setFallSendenOpen] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
 
   useEffect(() => {
     const fetchFall = async () => {
@@ -114,10 +119,20 @@ export default function FallDetail() {
     setEditDialogOpen(false);
   };
 
-  const handleSaveEdit = (updatedFall) => {
-    setFallData(updatedFall);
-    setStatus(updatedFall.status || '');
-    setUebermittlungen(updatedFall.uebermittlungen || 0);
+  const handleSaveEdit = async () => {
+    // Nach dem Speichern: Falldaten neu laden
+    const res = await getCaseById(id);
+    if (res.erfolg) {
+      setFallData(res.fall);
+      setStatus(res.fall.status || '');
+      setUebermittlungen(res.fall.uebermittlungen || 0);
+      // Dashboard/Statistik automatisch aktualisieren
+      window.dispatchEvent(new Event('caseStatusChanged'));
+      // Zentrale Fälle im Context neu laden (sofort für Dashboard)
+      if (typeof window.refreshCasesGlobal === 'function') {
+        await window.refreshCasesGlobal();
+      }
+    }
   };
 
   const handleDatenschutzAkzeptieren = async () => {
@@ -217,9 +232,7 @@ export default function FallDetail() {
   // Aufgabenliste mit Status
   const tasksWithStatus = [
     { label: 'Fallinformationen ausgefüllt', done: allCaseInfoFilled },
-    { label: 'Datenschutzerklärung angenommen', done: datenschutzAngenommen },
-    { label: 'Führerschein hochgeladen', done: hasDokument('fuehrerschein_vorne') && hasDokument('fuehrerschein_hinten') },
-    { label: 'Personalausweis hochgeladen', done: hasDokument('personalausweis_vorne') && hasDokument('personalausweis_hinten') },
+    { label: 'Datenschutzerklärung unterschrieben', done: fallData?.datenschutzUnterschrieben },
     { label: 'KFZ Gutachten hochgeladen', done: hasDokument('kfz_gutachten') },
     { label: 'Fahrzeugschein hochgeladen', done: hasDokument('fahrzeugschein') },
     { label: 'Rechnungen hochgeladen', done: hasDokument('rechnungen') },
@@ -620,56 +633,61 @@ export default function FallDetail() {
                     </Typography>
                     <Divider sx={{ mb: 2 }} />
                     <Typography variant="body2" sx={{ mb: 2 }}>
-                      Bitte lesen und akzeptieren Sie die Datenschutzerklärung, um mit der Fallbearbeitung fortzufahren.
+                      Bitte lesen und unterzeichnen Sie die Datenschutzerklärung online, um mit der Fallbearbeitung fortzufahren.
                     </Typography>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      {datenschutzAngenommen ? (
-                        <>
-                          <CheckCircleIcon sx={{ color: '#4caf50' }} />
-                          <Typography variant="body1" sx={{ color: '#4caf50', fontWeight: 600, flexGrow: 1 }}>
-                            Angenommen
-                          </Typography>
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            sx={{ 
-                              fontWeight: 600,
-                              borderColor: colors.secondary.main,
-                              color: colors.secondary.main,
-                              '&:hover': {
-                                borderColor: colors.secondary.dark,
-                                backgroundColor: colors.hover.blue,
-                              }
-                            }}
-                            onClick={handleDatenschutzWiderrufen}
-                          >
-                            Widerrufen
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <CloseIcon sx={{ color: '#d32f2f' }} />
-                          <Typography variant="body1" sx={{ color: colors.secondary.main, fontWeight: 600, flexGrow: 1 }}>
-                            Nicht angenommen
-                          </Typography>
-                          <Button
-                            variant="contained"
-                            color="primary"
-                            sx={{ 
-                              fontWeight: 600,
-                              bgcolor: colors.primary.main,
-                              color: colors.text.onPrimary,
-                              '&:hover': {
-                                bgcolor: colors.primary.dark,
-                              }
-                            }}
-                            onClick={handleDatenschutzAkzeptieren}
-                          >
-                            Akzeptieren
-                          </Button>
-                        </>
-                      )}
-                    </Stack>
+                    <DatenschutzUnterschriftFullscreen
+                      src="https://docuseal.com/d/QaWGMotNAqLqt9"
+                      email={fallData?.mandant?.email || 'signer@example.com'}
+                      onComplete={async () => {
+                        await handleDatenschutzAkzeptieren();
+                        setSnackbarOpen(true);
+                      }}
+                    />
+                    {/* Download-Link anzeigen, wenn PDF vorhanden */}
+                    {fallData?.datenschutzPdfPfad && (
+                      <Box sx={{ mt: 2 }}>
+                        <Button
+                          variant="outlined"
+                          color="primary"
+                          href={`/api/documents/download/datenschutz/${fallData._id}`}
+                          target="_blank"
+                          startIcon={<CloudDownloadIcon />}
+                        >
+                          Signierte Datenschutzerklärung herunterladen
+                        </Button>
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+              {/* Vermittelt von Kachel */}
+              <Grid item xs={12} md={6}>
+                <Card elevation={0} sx={{ borderRadius: 2, boxShadow: colors.shadows.sm, height: '100%' }}>
+                  <CardContent>
+                    <Typography variant="h6" fontWeight={500} sx={{ mb: 2, color: colors.secondary.main }}>
+                      Vermittelt von
+                    </Typography>
+                    <Divider sx={{ mb: 2 }} />
+                    {Array.isArray(fallData?.vermitteltVon) && fallData.vermitteltVon.length > 0 ? (
+                      fallData.vermitteltVon.map((v, idx) => (
+                        <Grid container spacing={1} key={idx} sx={{ mb: 1 }}>
+                          <Grid item xs={12} sm={4}>
+                            <Typography variant="subtitle2" color="text.secondary">Vorname</Typography>
+                            <Typography variant="body1">{v.vorname || '-'}</Typography>
+                          </Grid>
+                          <Grid item xs={12} sm={4}>
+                            <Typography variant="subtitle2" color="text.secondary">Nachname</Typography>
+                            <Typography variant="body1">{v.nachname || '-'}</Typography>
+                          </Grid>
+                          <Grid item xs={12} sm={4}>
+                            <Typography variant="subtitle2" color="text.secondary">Unternehmen</Typography>
+                            <Typography variant="body1">{v.unternehmen || '-'}</Typography>
+                          </Grid>
+                        </Grid>
+                      ))
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">Keine Vermittler eingetragen.</Typography>
+                    )}
                   </CardContent>
                 </Card>
               </Grid>

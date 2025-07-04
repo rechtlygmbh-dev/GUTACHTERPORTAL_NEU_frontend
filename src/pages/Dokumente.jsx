@@ -129,9 +129,7 @@ export default function Dokumente() {
       
       if (response.erfolg) {
         console.log(`📄 ${response.dokumente.length} Dokumente geladen`);
-        
-        // Mapping der Dokumente mit allen notwendigen Informationen
-        const mappedDokumente = response.dokumente.map(doc => ({
+        let mappedDokumente = response.dokumente.map(doc => ({
           id: doc._id,
           name: doc.name || doc.titel || doc.pfad?.split('/').pop() || 'Unbekanntes Dokument',
           fallname: doc.fall?.fallname || 'Unbekannter Fall',
@@ -144,23 +142,46 @@ export default function Dokumente() {
           hochgeladenVon: doc.hochgeladenVon ? `${doc.hochgeladenVon.vorname} ${doc.hochgeladenVon.nachname}` : 'Unbekannt',
           originalDoc: doc // Vollständiges Originaldokument für weitere Aktionen
         }));
-        
+
+        // --- Ergänzung: Datenschutzerklärung als Dokument einfügen ---
+        // Hole alle Fälle, um ggf. datenschutzPdfPfad zu finden
+        const casesResponse = await fetch('/api/cases');
+        if (casesResponse.ok) {
+          const casesData = await casesResponse.json();
+          if (casesData.erfolg && Array.isArray(casesData.faelle)) {
+            casesData.faelle.forEach(fall => {
+              if (fall.datenschutzPdfPfad) {
+                mappedDokumente.push({
+                  id: `datenschutz-${fall._id}`,
+                  name: 'Signierte Datenschutzerklärung',
+                  fallname: fall.fallname || 'Unbekannter Fall',
+                  fallId: fall._id,
+                  typ: 'datenschutzerklaerung',
+                  mimetype: 'application/pdf',
+                  größe: null,
+                  datum: fall.updatedAt ? new Date(fall.updatedAt).toLocaleDateString('de-DE') : '',
+                  datumRaw: fall.updatedAt ? new Date(fall.updatedAt) : null,
+                  hochgeladenVon: 'Mandant',
+                  originalDoc: {
+                    url: `/api/documents/download/datenschutz/${fall._id}`
+                  }
+                });
+              }
+            });
+          }
+        }
+        // --- Ende Ergänzung ---
+
         // Mit formatierten IDs versehen
         const dokumenteMitIds = generateDokumentIds(mappedDokumente);
-        
         // Speichern als Rohdaten für spätere Filterung
         setAlleDokumente(dokumenteMitIds);
-        
         // Extrahiere einzigartige Dokumenttypen für den Filter
         const uniqueTypen = [...new Set(mappedDokumente.map(doc => doc.typ))].filter(Boolean).sort();
         setDokumentTypen(uniqueTypen);
-        console.log('📁 Verfügbare Dokumenttypen:', uniqueTypen);
-        
         // Extrahiere einzigartige Fallnamen für den Filter
         const uniqueFälle = [...new Set(mappedDokumente.map(doc => doc.fallname))].filter(Boolean).sort();
         setFallListe(uniqueFälle);
-        console.log('📂 Verfügbare Fälle:', uniqueFälle.length);
-        
       } else {
         throw new Error(response.nachricht || 'Fehler beim Laden der Dokumente');
       }

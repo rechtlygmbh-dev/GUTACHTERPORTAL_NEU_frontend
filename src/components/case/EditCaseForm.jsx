@@ -79,13 +79,24 @@ export default function EditCaseForm({ open, handleClose, fallDaten, onSave }) {
     aktenzeichen: '',
     status: 'Offen',
     datum: new Date().toISOString().split('T')[0],
+    
+    // Vermittelt von
+    vermitteltVonVorname: '',
+    vermitteltVonNachname: '',
+    vermitteltVonUnternehmen: '',
   });
 
   const [error, setError] = useState('');
 
+  // Vermittler-Array als State
+  const [vermittler, setVermittler] = useState([
+    { vorname: '', nachname: '', unternehmen: '' }
+  ]);
+
   // Lade die Falldaten, wenn sie verfügbar sind
   useEffect(() => {
     if (fallDaten) {
+      setVermittler(Array.isArray(fallDaten.vermitteltVon) ? fallDaten.vermitteltVon : (fallDaten.vermitteltVon ? [fallDaten.vermitteltVon] : [{ vorname: '', nachname: '', unternehmen: '' }]));
       setFormData({
         // Mandantendaten
         vorname: fallDaten.mandant?.vorname || '',
@@ -123,6 +134,11 @@ export default function EditCaseForm({ open, handleClose, fallDaten, onSave }) {
         aktenzeichen: fallDaten.aktenzeichen || '',
         status: fallDaten.status || 'Offen',
         datum: fallDaten.datum ? formatDateForInput(fallDaten.datum) : new Date().toISOString().split('T')[0],
+        
+        // Vermittelt von
+        vermitteltVonVorname: fallDaten.vermitteltVon?.vorname || '',
+        vermitteltVonNachname: fallDaten.vermitteltVon?.nachname || '',
+        vermitteltVonUnternehmen: fallDaten.vermitteltVon?.unternehmen || '',
       });
     }
   }, [fallDaten]);
@@ -213,7 +229,8 @@ export default function EditCaseForm({ open, handleClose, fallDaten, onSave }) {
           beschreibung: formData.schadensbeschreibung,
           unfallort: formData.unfallort,
           unfallzeit: formData.unfallzeit,
-        }
+        },
+        vermitteltVon: vermittler,
       };
       // API-Call zum Speichern in der DB
       const res = await updateCase(fallDaten._id, updatedFall);
@@ -226,6 +243,19 @@ export default function EditCaseForm({ open, handleClose, fallDaten, onSave }) {
     } catch (err) {
       setError(err.response?.data?.nachricht || 'Fehler beim Speichern der Änderungen');
     }
+  };
+
+  // Vermittler hinzufügen
+  const addVermittler = () => setVermittler([...vermittler, { vorname: '', nachname: '', unternehmen: '' }]);
+
+  // Vermittler entfernen
+  const removeVermittler = (idx) => setVermittler(vermittler.filter((_, i) => i !== idx));
+
+  // Vermittler ändern
+  const handleVermittlerChange = (idx, field, value) => {
+    const updated = [...vermittler];
+    updated[idx][field] = value;
+    setVermittler(updated);
   };
 
   const textFieldSx = {
@@ -294,6 +324,7 @@ export default function EditCaseForm({ open, handleClose, fallDaten, onSave }) {
             <Tab label="Erste Partei" />
             <Tab label="Zweite Partei" />
             <Tab label="Schadensinformationen" />
+            <Tab label="Vermittelt von" />
           </Tabs>
         </Box>
         
@@ -668,6 +699,60 @@ export default function EditCaseForm({ open, handleClose, fallDaten, onSave }) {
             </Grid>
           </Grid>
         </TabPanel>
+        
+        {/* Tab 6: Vermittelt von */}
+        <TabPanel value={tabValue} index={5}>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: colors.secondary.main }}>
+            Vermittelt von
+          </Typography>
+          {vermittler.map((v, idx) => (
+            <Grid container spacing={2} key={idx} alignItems="center">
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="Vorname"
+                  value={v.vorname}
+                  onChange={e => handleVermittlerChange(idx, 'vorname', e.target.value)}
+                  margin="normal"
+                  variant="outlined"
+                  sx={textFieldSx}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="Nachname"
+                  value={v.nachname}
+                  onChange={e => handleVermittlerChange(idx, 'nachname', e.target.value)}
+                  margin="normal"
+                  variant="outlined"
+                  sx={textFieldSx}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  label="Unternehmen"
+                  value={v.unternehmen}
+                  onChange={e => handleVermittlerChange(idx, 'unternehmen', e.target.value)}
+                  margin="normal"
+                  variant="outlined"
+                  sx={textFieldSx}
+                />
+              </Grid>
+              <Grid item xs={12} md={1}>
+                {vermittler.length > 1 && (
+                  <Button color="error" onClick={() => removeVermittler(idx)} sx={{ mt: 2 }}>
+                    Entfernen
+                  </Button>
+                )}
+              </Grid>
+            </Grid>
+          ))}
+          <Button onClick={addVermittler} sx={{ mt: 2 }} variant="outlined" color="primary">
+            Vermittler hinzufügen
+          </Button>
+        </TabPanel>
       </DialogContent>
       <DialogActions sx={{ p: 3, bgcolor: '#f5f7fa' }}>
         <Button 
@@ -709,7 +794,7 @@ export default function EditCaseForm({ open, handleClose, fallDaten, onSave }) {
         </Button>
         <Button 
           onClick={() => {
-            if (tabValue < 4) {
+            if (tabValue < 5) {
               setTabValue(tabValue + 1);
             } else {
               handleSubmit();
@@ -725,7 +810,7 @@ export default function EditCaseForm({ open, handleClose, fallDaten, onSave }) {
             }
           }}
         >
-          {tabValue === 4 ? 'Änderungen speichern' : 'Weiter'}
+          {tabValue === 5 ? 'Änderungen speichern' : 'Weiter'}
         </Button>
       </DialogActions>
     </Dialog>
