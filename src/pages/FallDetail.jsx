@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
@@ -71,6 +71,8 @@ export default function FallDetail() {
   const [datenschutzAngenommen, setDatenschutzAngenommen] = useState(false);
   const [fallSendenOpen, setFallSendenOpen] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [polling, setPolling] = useState(false);
+  const pollingRef = useRef();
 
   useEffect(() => {
     const fetchFall = async () => {
@@ -180,6 +182,26 @@ export default function FallDetail() {
     }) + ' Uhr';
   };
 
+  const handleDocusealComplete = () => {
+    setPolling(true);
+  };
+
+  useEffect(() => {
+    if (polling) {
+      pollingRef.current = setInterval(async () => {
+        const res = await getCaseById(id);
+        if (res.erfolg && res.fall.datenschutzUnterschrieben) {
+          setFallData(res.fall);
+          setPolling(false);
+          setSnackbarOpen(true);
+        }
+      }, 2000);
+    } else {
+      clearInterval(pollingRef.current);
+    }
+    return () => clearInterval(pollingRef.current);
+  }, [polling, id]);
+
   if (loading) {
     return <Box sx={{ p: 4, width: '100%' }}><Typography>Lade Falldaten...</Typography></Box>;
   }
@@ -232,7 +254,7 @@ export default function FallDetail() {
   // Aufgabenliste mit Status
   const tasksWithStatus = [
     { label: 'Fallinformationen ausgefüllt', done: allCaseInfoFilled },
-    { label: 'Datenschutzerklärung unterschrieben', done: fallData?.datenschutzUnterschrieben },
+    { label: 'Vollmacht unterschrieben', done: fallData?.datenschutzUnterschrieben },
     { label: 'KFZ Gutachten hochgeladen', done: hasDokument('kfz_gutachten') },
     { label: 'Fahrzeugschein hochgeladen', done: hasDokument('fahrzeugschein') },
     { label: 'Rechnungen hochgeladen', done: hasDokument('rechnungen') },
@@ -629,19 +651,16 @@ export default function FallDetail() {
                 <Card elevation={0} sx={{ borderRadius: 2, boxShadow: colors.shadows.sm, height: '100%' }}>
                   <CardContent>
                     <Typography variant="h6" fontWeight={500} sx={{ mb: 2, color: colors.secondary.main }}>
-                      Datenschutzerklärung
+                      Vollmacht
                     </Typography>
                     <Divider sx={{ mb: 2 }} />
                     <Typography variant="body2" sx={{ mb: 2 }}>
-                      Bitte lesen und unterzeichnen Sie die Datenschutzerklärung online, um mit der Fallbearbeitung fortzufahren.
+                      Bitte lesen und unterzeichnen Sie die Vollmacht online, um mit der Fallbearbeitung fortzufahren.
                     </Typography>
                     <DatenschutzUnterschriftFullscreen
                       src="https://docuseal.com/d/QaWGMotNAqLqt9"
                       email={fallData?.mandant?.email || 'signer@example.com'}
-                      onComplete={async () => {
-                        await handleDatenschutzAkzeptieren();
-                        setSnackbarOpen(true);
-                      }}
+                      onComplete={handleDocusealComplete}
                     />
                     {/* Download-Link anzeigen, wenn PDF vorhanden */}
                     {fallData?.datenschutzPdfPfad && (
@@ -653,7 +672,7 @@ export default function FallDetail() {
                           target="_blank"
                           startIcon={<CloudDownloadIcon />}
                         >
-                          Signierte Datenschutzerklärung herunterladen
+                          Signierte Vollmacht herunterladen
                         </Button>
                       </Box>
                     )}
