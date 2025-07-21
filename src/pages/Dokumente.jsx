@@ -30,7 +30,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import CloseIcon from '@mui/icons-material/Close';
 import ErrorIcon from '@mui/icons-material/Error';
-import { documentService } from '../services/api';
+import { documentService, caseService } from '../services/api';
 
 export default function Dokumente() {
   // State für Rohdaten
@@ -145,30 +145,27 @@ export default function Dokumente() {
 
         // --- Ergänzung: Datenschutzerklärung als Dokument einfügen ---
         // Hole alle Fälle, um ggf. datenschutzPdfPfad zu finden
-        const casesResponse = await fetch('/api/cases');
-        if (casesResponse.ok) {
-          const casesData = await casesResponse.json();
-          if (casesData.erfolg && Array.isArray(casesData.faelle)) {
-            casesData.faelle.forEach(fall => {
-              if (fall.datenschutzPdfPfad) {
-                mappedDokumente.push({
-                  id: `datenschutz-${fall._id}`,
-                  name: 'Signierte Datenschutzerklärung',
-                  fallname: fall.fallname || 'Unbekannter Fall',
-                  fallId: fall._id,
-                  typ: 'datenschutzerklaerung',
-                  mimetype: 'application/pdf',
-                  größe: null,
-                  datum: fall.updatedAt ? new Date(fall.updatedAt).toLocaleDateString('de-DE') : '',
-                  datumRaw: fall.updatedAt ? new Date(fall.updatedAt) : null,
-                  hochgeladenVon: 'Mandant',
-                  originalDoc: {
-                    url: `/api/documents/download/datenschutz/${fall._id}`
-                  }
-                });
-              }
-            });
-          }
+        const casesData = await caseService.getCases();
+        if (casesData.erfolg && Array.isArray(casesData.faelle)) {
+          casesData.faelle.forEach(fall => {
+            if (fall.datenschutzPdfPfad) {
+              mappedDokumente.push({
+                id: `datenschutz-${fall._id}`,
+                name: 'Signierte Datenschutzerklärung',
+                fallname: fall.fallname || 'Unbekannter Fall',
+                fallId: fall._id,
+                typ: 'datenschutzerklaerung',
+                mimetype: 'application/pdf',
+                größe: null,
+                datum: fall.updatedAt ? new Date(fall.updatedAt).toLocaleDateString('de-DE') : '',
+                datumRaw: fall.updatedAt ? new Date(fall.updatedAt) : null,
+                hochgeladenVon: 'Mandant',
+                originalDoc: {
+                  url: `/api/documents/download/datenschutz/${fall._id}`
+                }
+              });
+            }
+          });
         }
         // --- Ende Ergänzung ---
 
@@ -976,7 +973,6 @@ export default function Dokumente() {
           columns={columns}
           pagination
           paginationMode="client"
-          rowCount={dokumente.length}
           pageSize={pageSize}
           page={page}
           onPageChange={(newPage) => setPage(newPage)}
