@@ -202,48 +202,38 @@ export default function DocumentsTab({ dokumente = [], fallId, onRefresh }) {
   };
 
   // Dokument herunterladen
-  const handleDownload = async (documentId) => {
+  const handleDownload = async (documentId, row) => {
+    if ((row.kategorie === 'vollmacht' || row.kategorie === 'datenschutzerklaerung') && row.url) {
+      window.open(row.url, '_blank');
+      return;
+    }
+    // Standard-Logik
     try {
       setSnackbar({
         open: true,
         message: `🔄 Download wird vorbereitet...`,
         severity: 'info'
       });
-      
       const response = await documentService.getDocumentById(documentId);
-      
       if (response.erfolg) {
         const url = response.dokument.url;
         const fileName = response.dokument.name || response.dokument.titel || 'dokument';
-        
-        // Datei über Fetch-API herunterladen
         const fetchResponse = await fetch(url);
         if (!fetchResponse.ok) {
           throw new Error('Download konnte nicht durchgeführt werden');
         }
-        
-        // Inhalt als Blob abrufen
         const blob = await fetchResponse.blob();
-        
-        // Blob-URL erstellen
         const blobUrl = window.URL.createObjectURL(blob);
-        
-        // Link für den Download erstellen
         const link = document.createElement('a');
         link.href = blobUrl;
         link.download = fileName;
         link.style.display = 'none';
-        
-        // Link zum DOM hinzufügen und klicken
         document.body.appendChild(link);
         link.click();
-        
-        // Aufräumen: Link entfernen und Blob-URL freigeben
         setTimeout(() => {
           document.body.removeChild(link);
           window.URL.revokeObjectURL(blobUrl);
         }, 100);
-        
         setSnackbar({
           open: true,
           message: `✅ Download von ${fileName} gestartet`,
@@ -263,11 +253,19 @@ export default function DocumentsTab({ dokumente = [], fallId, onRefresh }) {
   };
 
   // Dokument anzeigen (im Modal)
-  const handleView = async (documentId) => {
+  const handleView = async (documentId, row) => {
+    if ((row.kategorie === 'vollmacht' || row.kategorie === 'datenschutzerklaerung') && row.url) {
+      setPreviewUrl(row.url);
+      setPreviewName(row.name);
+      setPreviewType('application/pdf');
+      setPreviewOpen(true);
+      setCurrentDocumentId(documentId);
+      return;
+    }
+    // Standard-Logik
     try {
       setPreviewLoading(true);
       const response = await documentService.getDocumentById(documentId);
-      
       if (response.erfolg) {
         const dokument = response.dokument;
         setPreviewUrl(dokument.url);
@@ -465,7 +463,7 @@ export default function DocumentsTab({ dokumente = [], fallId, onRefresh }) {
             size="small" 
             sx={{ color: colors.accent.blue }} 
             aria-label="ansehen"
-            onClick={() => handleView(params.row._id)}
+            onClick={() => handleView(params.row._id, params.row)}
           >
             <VisibilityIcon fontSize="small" />
           </IconButton>
@@ -473,7 +471,7 @@ export default function DocumentsTab({ dokumente = [], fallId, onRefresh }) {
             size="small" 
             sx={{ color: colors.primary.dark }} 
             aria-label="herunterladen"
-            onClick={() => handleDownload(params.row._id)}
+            onClick={() => handleDownload(params.row._id, params.row)}
           >
             <CloudDownloadIcon fontSize="small" />
           </IconButton>
@@ -788,7 +786,7 @@ export default function DocumentsTab({ dokumente = [], fallId, onRefresh }) {
           </Button>
           <Button 
             variant="contained" 
-            onClick={() => currentDocumentId && handleDownload(currentDocumentId)}
+            onClick={() => currentDocumentId && handleDownload(currentDocumentId, { _id: currentDocumentId, name: previewName, kategorie: previewType === 'application/pdf' ? 'vollmacht' : 'sonstiges', url: previewUrl })}
             startIcon={<CloudDownloadIcon />}
             sx={{
               bgcolor: colors.primary.main,

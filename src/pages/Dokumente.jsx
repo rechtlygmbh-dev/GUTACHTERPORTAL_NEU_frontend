@@ -352,17 +352,24 @@ export default function Dokumente() {
   };
 
   // Dokument anzeigen (im Modal)
-  const handleView = async (id) => {
+  const handleView = async (id, row) => {
+    // Spezialfall: Datenschutzerklärung/Vollmacht
+    if ((row.typ === 'datenschutzerklaerung' || row.typ === 'vollmacht') && row.originalDoc?.url) {
+      setPreviewUrl(row.originalDoc.url);
+      setPreviewName(row.name);
+      setPreviewType('application/pdf');
+      setPreviewOpen(true);
+      return;
+    }
+    // Standard-Logik
     try {
       setPreviewLoading(true);
       const response = await documentService.getDocumentById(id);
-      
       if (response.erfolg) {
         const dokument = response.dokument;
         setPreviewUrl(dokument.url);
         setPreviewName(dokument.name || dokument.titel || 'Dokument');
         setPreviewType(dokument.dateityp || 'application/octet-stream');
-        // Die Dokument-ID für späteren Download speichern
         setPreviewOpen(true);
       } else {
         throw new Error(response.nachricht || 'Fehler beim Anzeigen des Dokuments');
@@ -381,48 +388,39 @@ export default function Dokumente() {
   };
 
   // Dokument herunterladen
-  const handleDownload = async (id) => {
+  const handleDownload = async (id, row) => {
+    // Spezialfall: Datenschutzerklärung/Vollmacht
+    if ((row.typ === 'datenschutzerklaerung' || row.typ === 'vollmacht') && row.originalDoc?.url) {
+      window.open(row.originalDoc.url, '_blank');
+      return;
+    }
+    // Standard-Logik
     try {
       setSnackbar({
         open: true,
         message: `Download wird vorbereitet...`,
         severity: 'info'
       });
-      
       const response = await documentService.getDocumentById(id);
-      
       if (response.erfolg) {
         const url = response.dokument.url;
         const fileName = response.dokument.name || response.dokument.titel || 'dokument';
-        
-        // Datei über Fetch-API herunterladen
         const fetchResponse = await fetch(url);
         if (!fetchResponse.ok) {
           throw new Error('Download konnte nicht durchgeführt werden');
         }
-        
-        // Inhalt als Blob abrufen
         const blob = await fetchResponse.blob();
-        
-        // Blob-URL erstellen
         const blobUrl = window.URL.createObjectURL(blob);
-        
-        // Link für den Download erstellen
         const link = document.createElement('a');
         link.href = blobUrl;
         link.download = fileName;
         link.style.display = 'none';
-        
-        // Link zum DOM hinzufügen und klicken
         document.body.appendChild(link);
         link.click();
-        
-        // Aufräumen: Link entfernen und Blob-URL freigeben
         setTimeout(() => {
           document.body.removeChild(link);
           window.URL.revokeObjectURL(blobUrl);
         }, 100);
-        
         setSnackbar({
           open: true,
           message: `Download von ${fileName} gestartet`,
@@ -675,7 +673,7 @@ export default function Dokumente() {
           <IconButton 
             size="small" 
             aria-label="ansehen"
-            onClick={() => handleView(params.row.id)}
+            onClick={() => handleView(params.row.id, params.row)}
             sx={{ color: colors.accent.blue }}
           >
             <VisibilityIcon fontSize="small" />
@@ -683,7 +681,7 @@ export default function Dokumente() {
           <IconButton 
             size="small" 
             aria-label="herunterladen"
-            onClick={() => handleDownload(params.row.id)}
+            onClick={() => handleDownload(params.row.id, params.row)}
             sx={{ color: colors.primary.dark }}
           >
             <CloudDownloadIcon fontSize="small" />
@@ -1085,10 +1083,10 @@ export default function Dokumente() {
                     (doc.originalDoc && doc.originalDoc._id === lastPart));
                 
                 if (matchingDokument) {
-                  handleDownload(matchingDokument.id);
+                  handleDownload(matchingDokument.id, matchingDokument);
                 } else {
                   // Fallback: Versuche es mit der extrahierten ID
-                  handleDownload(lastPart);
+                  handleDownload(lastPart, { id: lastPart, originalDoc: { url: previewUrl } });
                 }
               }
             }}
